@@ -3,8 +3,7 @@
     "description": "Bonefish command-line implementation",
     "type": "bonefish-package",
     "require": {
-        "composer/installers": "*",
-        "av/bonefish": "0.4.*"
+        "composer/installers": "*"
     },
     "autoload": {
         "psr-4": {
