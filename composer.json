@@ -1,0 +1,14 @@
+{
+    "name": "av/raptor",
+    "description": "Bonefish command-line implementation",
+    "type": "bonefish-package",
+    "require": {
+        "composer/installers": "*",
+        "av/bonefish": "0.4.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Bonefish\\Raptor\\": ["","src"]
+        }
+    }
+}
