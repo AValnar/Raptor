@@ -4,7 +4,6 @@
 namespace Bonefish\Raptor;
 
 use Bonefish\AbstractTraits\Parameters;
-use Bonefish\CLI\CLImateWrapper;
 use Bonefish\CLI\ICLI;
 
 /**

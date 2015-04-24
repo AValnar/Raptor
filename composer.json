@@ -3,7 +3,8 @@
     "description": "Bonefish command-line implementation",
     "type": "bonefish-package",
     "require": {
-        "composer/installers": "*"
+        "composer/installers": "*",
+        "league/climate": "2.4.*"
     },
     "autoload": {
         "psr-4": {
