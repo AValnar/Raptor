@@ -9,9 +9,9 @@
 namespace Bonefish\Raptor\Command;
 
 use Bonefish\AbstractTraits\Parameters;
-use Bonefish\CLI\CLImateWrapper;
 use Bonefish\Controller\Command;
 use Bonefish\Core\Package;
+use Bonefish\Raptor\CLImateWrapper;
 
 class ExplainCommand extends CLImateWrapper implements ICommand
 {

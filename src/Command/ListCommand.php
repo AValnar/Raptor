@@ -4,7 +4,7 @@ namespace Bonefish\Raptor\Command;
 
 
 use Bonefish\AbstractTraits\Parameters;
-use Bonefish\CLI\CLImateWrapper;
+use Bonefish\Raptor\CLImateWrapper;
 
 class ListCommand extends CLImateWrapper implements ICommand
 {

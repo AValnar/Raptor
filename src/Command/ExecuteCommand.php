@@ -8,10 +8,6 @@
 
 namespace Bonefish\Raptor\Command;
 
-use Bonefish\AbstractTraits\Parameters;
-use Bonefish\Raptor\CLImateWrapper;
-use Bonefish\Controller\Command;
-use Bonefish\Core\Package;
 
 class ExecuteCommand extends ExplainCommand
 {
