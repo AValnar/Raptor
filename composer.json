@@ -8,7 +8,8 @@
     },
     "autoload": {
         "psr-4": {
-            "Bonefish\\Raptor\\": ["","src"]
+            "Bonefish\\Raptor\\": ["","src"],
+            "Bonefish\\Tests\\Raptor\\": ["tests"]
         }
     }
 }
