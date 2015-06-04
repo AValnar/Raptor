@@ -1,13 +1,7 @@
 <?php
 
-
-namespace Bonefish\Raptor;
-
-use Bonefish\AbstractTraits\Parameters;
-use Bonefish\CLI\ICLI;
-
 /**
- * Copyright (C) 2014  Alexander Schmidt
+ * Copyright (C) 2015  Alexander Schmidt
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,88 +16,121 @@ use Bonefish\CLI\ICLI;
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * @author     Alexander Schmidt <mail@story75.com>
- * @copyright  Copyright (c) 2014, Alexander Schmidt
- * @version    1.0
- * @date       2015-03-14
- * @package Bonefish\Raptor
+ * @copyright  Copyright (c) 2015, Alexander Schmidt
+ * @date       2015-06-04
  */
-class Raptor extends CLImateWrapper implements ICLI
+
+namespace Bonefish\Raptor;
+
+use Bonefish\CLI\CLIInterface;
+use Bonefish\Raptor\Command\CommandInterface;
+use Bonefish\Raptor\Command\HelpCommand;
+use Bonefish\Traits\Parametrized;
+
+class Raptor implements CLIInterface
 {
-    use Parameters;
+
+    use Parametrized;
+
+    protected $validCommandTypes = [
+        self::HELP_COMMAND,
+        self::LIST_COMMAND,
+        self::EXPLAIN_COMMAND,
+        self::EXECUTE_COMMAND
+    ];
 
     /**
-     * @var \Bonefish\Raptor\Command\Generator
-     * @Bonefish\Inject
-     */
-    public $generator;
-
-    /**
-     * Main handler
+     * Main handler which is called after all arguments have been passed
+     *
+     * The CLI must be able to execute the following commands:
+     *
+     * - help
+     * - list
+     * - explain <vendor> <package> <command>
+     * - execute <vendor> <package> <command> [argument]*
      */
     public function run()
     {
-        $args = array_slice($this->getParameters(), 1);
-        $this->getCommandAndPrintOutput($args);
+        $parameters = $this->validateParameters();
+
+        $this->executeCommand($parameters);
     }
 
     /**
-     * Execute an action
+     * Validate passed parameters to be valid
      *
-     * @param \Bonefish\Core\Package $package
-     * @param string $action
+     * @return array
+     */
+    protected function validateParameters()
+    {
+        $parameters = $this->getParameters();
+
+        $this->basicParametersValidation($parameters);
+        $this->validateExplainAndExecuteCommandFormat($parameters);
+
+        return $parameters;
+    }
+
+    /**
+     * Validate arguments to be in a valid format
+     *
+     * @param $parameters
+     */
+    protected function basicParametersValidation($parameters)
+    {
+        if (count($parameters) < 1) {
+            echo 'Invalid amount of parameters.';
+            exit(self::INVALID_PARAMETER_AMOUNT);
+        }
+
+        if (!in_array($parameters[0], $this->validCommandTypes)) {
+            echo 'Invalid command type (' . $parameters[0] . ').';
+            exit(self::INVALID_COMMAND_TYPE);
+        }
+    }
+
+    /**
+     * Validate explain and execute command for basic sanity.
+     *
+     * @param $parameters
+     */
+    protected function validateExplainAndExecuteCommandFormat($parameters)
+    {
+        if ($parameters[0] !== self::EXPLAIN_COMMAND && $parameters[0] !== self::EXECUTE_COMMAND) {
+            return;
+        }
+
+        if (count($parameters) < 4) {
+            echo 'Invalid amount of parameters.';
+            exit(self::INVALID_PARAMETER_AMOUNT);
+        }
+    }
+
+    /**
      * @param array $parameters
      */
-    public function execute($package, $action, $parameters = array())
+    protected function executeCommand(array $parameters)
     {
-        $args = array_merge(array('execute', $package->getVendor(), $package->getName(), $action), $parameters);
-        $this->getCommandAndPrintOutput($args);
-    }
+        /** @var CommandInterface $command */
+        $command = null;
 
-    /**
-     * Explain an action
-     *
-     * @param \Bonefish\Core\Package $package
-     * @param string $action
-     */
-    public function explain($package, $action)
-    {
-        $args = array('execute', $package->getVendor(), $package->getName(), $action);
-        $this->getCommandAndPrintOutput($args);
-    }
-
-    /**
-     * Print output if there was any
-     *
-     * @param null $output
-     */
-    protected function printOutput($output = NULL)
-    {
-        if ($output == NULL) {
-            return;
+        switch ($parameters[0]) {
+            case self::HELP_COMMAND :
+                $command = new HelpCommand();
+                break;
+            case self::EXPLAIN_COMMAND :
+                echo 'Explain command';
+                break;
+            case self::EXECUTE_COMMAND :
+                echo 'Execute command';
+                break;
+            default :
+                echo 'List command';
+                breaK;
         }
 
-        if (is_array($output)) {
-            $this->table($output);
-            return;
-        }
-
-        $this->out($output);
-        return;
+        $command->setParameters(array_slice($parameters, 1));
+        $returnCode = $command->execute();
+        exit(intval($returnCode));
     }
-
-    /**
-     * @param array $args
-     */
-    protected function getCommandAndPrintOutput($args)
-    {
-        $this->generator->setParameters($args);
-
-        try {
-            $command = $this->generator->getCommand();
-            $output = $command->execute();
-            $this->printOutput($output);
-        } catch (\Exception $e) {
-            $this->red($e->getMessage());
-        }
-    }
-} 
+}

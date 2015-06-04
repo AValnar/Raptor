@@ -3,8 +3,9 @@
     "description": "Bonefish command-line implementation",
     "type": "bonefish-package",
     "require": {
-        "composer/installers": "*",
-        "league/climate": "2.4.*"
+        "php": ">=5.6.0",
+        "av/bonefish": "*",
+        "composer/installers": "*"
     },
     "autoload": {
         "psr-4": {

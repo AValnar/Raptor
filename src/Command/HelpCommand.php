@@ -3,54 +3,22 @@
 namespace Bonefish\Raptor\Command;
 
 
-use Bonefish\AbstractTraits\Parameters;
+use Bonefish\CLI\CLIInterface;
+use Bonefish\Traits\Parametrized;
 
-class HelpCommand implements ICommand
+class HelpCommand implements CommandInterface
 {
-    use Parameters;
+    use Parametrized;
 
     public function execute()
     {
-        return [
-            [
-                'Command type' => 'help',
-                'Arguments' => '~none~',
-                'Description' => 'Display this help'
-            ],
-            [
-                'Command type' => 'list',
-                'Arguments' => '[VendorName] [PackageName]',
-                'Description' => 'Display all commands. This list can be further filtered by vendor and then also by package.'
-            ],
-            [
-                'Command type' => 'execute',
-                'Arguments' => 'VendorName PackageName CommandName [CommandArguments]',
-                'Description' => 'Execute a specific command. The number of arguments depends on the command. If you are unsure use explain first!'
-            ],
-            [
-                'Command type' => 'explain',
-                'Arguments' => 'VendorName PackageName CommandName',
-                'Description' => 'Explain a specific command. This will show the name, description and arguments.'
-            ]
-        ];
-    }
+        echo "Command\t\t\tArguments\t\t\tDescription" . PHP_EOL;
+        echo CLIInterface::HELP_COMMAND . "\t\t\t\t\t\t\tDisplay help for cli" . PHP_EOL;
+        echo CLIInterface::LIST_COMMAND . "\t\t\t[<vendor>] [<package>]\t\tDisplay all commands. This list can be further filtered by vendor and then also by package." . PHP_EOL;
+        echo CLIInterface::EXPLAIN_COMMAND . "\t\t\t<vendor> <package> <command>\tExplain a command. This will show the name, description and arguments." . PHP_EOL;
+        echo CLIInterface::EXECUTE_COMMAND . "\t\t\t[<vendor>] [<package>]\t\tExecute a command. The number of arguments depends on the command. If you are unsure use explain first!" . PHP_EOL;
 
-    /**
-     * @return bool
-     */
-    public function isValid()
-    {
-        return strtolower($this->arguments[0]) == $this->getFirstParameter();
-    }
-
-    /**
-     * Return the first parameter that has to be set to create a valid command
-     *
-     * @return string
-     */
-    public function getFirstParameter()
-    {
-       return 'help';
+        return 0;
     }
 
 }
