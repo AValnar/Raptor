@@ -22,6 +22,8 @@
 namespace Bonefish\Raptor;
 
 
+use Bonefish\Reflection\Meta\ClassMeta;
+use Bonefish\Reflection\Meta\MethodMeta;
 use Bonefish\Reflection\ReflectionService;
 use Bonefish\Traits\DirectoryCreator;
 use Bonefish\Utility\Environment;
@@ -59,140 +61,212 @@ class CommandProxyGenerator
      */
     public $reflectionService;
 
+    /**
+     * @var Standard
+     * @Bonefish\Inject
+     */
+    public $prettyPrinter;
+
+    const PROXY_NAMESPACE = 'Bonefish\Raptor\Proxy';
+    const COMMAND_SUFFIX = 'Command';
+    const COMMAND_PROXY_NAME_SEPARATOR = '_';
+
+    /**
+     * Get path where raptor should store proxy classes
+     *
+     * @return string
+     */
     public function getRaptorCachePath()
     {
         return $this->environment->getFullCachePath() . Raptor::RAPTOR_CACHE_PATH;
     }
 
+    /**
+     * Entry point to create proxies of a bonefish command class
+     *
+     * @param string $className
+     * @return array
+     */
     public function generateCommandProxy($className)
     {
         $classMeta = $this->reflectionService->getClassMetaReflection($className);
-        $nameSpaceParts = explode('\\', $classMeta->getNamespace());
-        $namespace = 'Bonefish\Raptor\Proxy';
-        $vendor = $nameSpaceParts[0];
-        $package = $nameSpaceParts[1];
-
         $proxies = [];
 
+        $cachePath = $this->getRaptorCachePath();
+        $this->createDir($cachePath);
         $thisNode = new Variable('this');
 
-        foreach ($classMeta->getMethods() as $method) {
+        foreach ($classMeta->getMethods() as $methodMeta) {
 
-            if (!stristr($method->getName(), 'Command')) {
+            // skip if method is not a command or an inherited command
+            if (!stristr($methodMeta->getName(), self::COMMAND_SUFFIX) ||
+                $methodMeta->getDeclaringClass() !== $classMeta) {
                 continue;
             }
 
-            $name = 'Raptor_Proxy_' . implode('_',
-                    $nameSpaceParts) . '_' . $classMeta->getShortName() . '_' . ucfirst($method->getName());
-            $fullName = $namespace . '\\' . $name;
-
-            $commandName = strtolower($vendor . ':' . $package . ':' . str_replace('Command', '', $method->getName()));
-
-            $configNodes = [];
-            $executeNodes = [];
-
-            $executeArgs = [];
-
-            $configNodes[] = new MethodCall(
-                $thisNode,
-                'setName',
-                [
-                    new Arg(new String_($commandName))
-                ]
-            );
-
-            $configNodes[] = new MethodCall(
-                $thisNode,
-                'setDescription',
-                [
-                    new Arg(new String_($method->getDescription()))
-                ]
-            );
-
-            foreach ($method->getParameters() as $parameter) {
-                $configNodes[] = new MethodCall(
-                    $thisNode,
-                    'addArgument',
-                    [
-                        new Arg(new String_($parameter->getName())),
-                        new Arg(new ClassConstFetch(new Name('InputArgument'),
-                            $parameter->isOptional() ? 'OPTIONAL' : 'REQUIRED'))
-                    ]
-                );
-                $executeArgs[] = new Arg(
-                    new MethodCall(
-                        new Variable('input'),
-                        'getArgument',
-                        [
-                            new Arg(new String_($parameter->getName()))
-                        ]
-                    )
-                );
-            }
-
-            $commandControllerVariable = new Variable('commandController');
-
-            $executeNodes[] = new Assign(
-                $commandControllerVariable,
-                new MethodCall(
-                    new PropertyFetch(
-                        $thisNode,
-                        'container'
-                    ),
-                    'get',
-                    [
-                        new Arg(new String_($className))
-                    ]
-                )
-            );
-
-            $executeNodes[] = new MethodCall(
-                $commandControllerVariable,
-                $method->getName(),
-                $executeArgs
-            );
-
-
-            $node = $this->phpGenerator->namespace($namespace)
-                ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Command\Command'))
-                ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Input\InputArgument'))
-                ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Input\InputInterface'))
-                ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Output\OutputInterface'))
-                ->addStmt($this->phpGenerator->use('Bonefish\Injection\ContainerInterface'))
-                ->addStmt($this->phpGenerator->class($name)
-                    ->extend('Command')
-                    ->addStmt($this->phpGenerator->property('container')
-                        ->makePublic()
-                        ->setDocComment('/**
-                        * @var ContainerInterface
-                        * @Bonefish\Inject
-                        */')
-                    )
-                    ->addStmt($this->phpGenerator->method('configure')
-                        ->makeProtected()
-                        ->addStmts($configNodes)
-                    )
-                    ->addStmt($this->phpGenerator->method('execute')
-                        ->makeProtected()
-                        ->addParam($this->phpGenerator->param('input')->setTypeHint('InputInterface'))
-                        ->addParam($this->phpGenerator->param('output')->setTypeHint('OutputInterface'))
-                        ->addStmts($executeNodes)
-                    )
-                )
-                ->getNode();
-
-            $stmts = array($node);
-            $prettyPrinter = new Standard();
-            $code = $prettyPrinter->prettyPrintFile($stmts);
-
-            $cachePath = $this->getRaptorCachePath();
-            $this->createDir($cachePath);
-            file_put_contents($cachePath . $name . '.php', $code);
-            $proxies[] = $fullName;
-
+            $proxies[] = $this->generateProxyForMethod($cachePath, $thisNode, $methodMeta, $classMeta);
         }
 
         return $proxies;
     }
 
+    /**
+     * Create a unique command name
+     *
+     * @param MethodMeta $methodMeta
+     * @param ClassMeta $classMeta
+     * @return string
+     */
+    protected function getCommandName($methodMeta, $classMeta)
+    {
+        $nameSpaceParts = explode('\\', $classMeta->getNamespace());
+        $vendor = $nameSpaceParts[0];
+        $package = $nameSpaceParts[1];
+
+        return strtolower($vendor . ':' . $package . ':' . str_replace(self::COMMAND_SUFFIX, '', $methodMeta->getName()));
+    }
+
+    /**
+     * @param MethodMeta $methodMeta
+     * @param ClassMeta $classMeta
+     * @return string
+     */
+    protected function getProxyClassName($methodMeta, $classMeta)
+    {
+        $nameSpaceParts = explode('\\', $classMeta->getNamespace());
+
+        // Raptor_Proxy_Command_Name_Space_ShortName_MethodName
+
+        return 'Raptor_Proxy_' .
+                implode(self::COMMAND_PROXY_NAME_SEPARATOR, $nameSpaceParts) .
+                self::COMMAND_PROXY_NAME_SEPARATOR . $classMeta->getShortName() .
+                '_' . ucfirst($methodMeta->getName());
+    }
+
+    /**
+     * @param string $cachePath
+     * @param Variable $thisNode
+     * @param MethodMeta $methodMeta
+     * @param ClassMeta $classMeta
+     * @return string
+     */
+    protected function generateProxyForMethod($cachePath, $thisNode, $methodMeta, $classMeta)
+    {
+        $name = $this->getProxyClassName($methodMeta, $classMeta);
+        $fullName = self::PROXY_NAMESPACE . '\\' . $name;
+        $commandName = $this->getCommandName($methodMeta, $classMeta);
+
+        // Nodes to create the configuration method block
+        $configNodes = [];
+        // Nodes to create the execute method block
+        $executeNodes = [];
+        // Nodes of the arguments to execute the command
+        $executeArgs = [];
+
+        // $this->setName($commandName)
+        $configNodes[] = $this->simpleMethodCallNode($thisNode, 'setName', $commandName);
+        // $this->setDescription($methodMeta->getDescription())
+        $configNodes[] = $this->simpleMethodCallNode($thisNode, 'setDescription', $methodMeta->getDescription());
+
+        foreach ($methodMeta->getParameters() as $parameter) {
+            // $this->addArgument($parameter->getName(), $parameter->isOptional() ? InputArgument::OPTIONAL : InputArgument::REQUIRED)
+            $configNodes[] = new MethodCall(
+                $thisNode,
+                'addArgument',
+                [
+                    new Arg(new String_($parameter->getName())),
+                    new Arg(new ClassConstFetch(new Name('InputArgument'),
+                        $parameter->isOptional() ? 'OPTIONAL' : 'REQUIRED'))
+                ]
+            );
+            // $input->getArgument($parameter->getName())
+            $executeArgs[] = new Arg(
+                new MethodCall(
+                    new Variable('input'),
+                    'getArgument',
+                    [
+                        new Arg(new String_($parameter->getName()))
+                    ]
+                )
+            );
+        }
+
+        $commandControllerVariable = new Variable('commandController');
+
+        // $this->container->get($classMeta->getName())
+        $executeNodes[] = new Assign(
+            $commandControllerVariable,
+            new MethodCall(
+                new PropertyFetch(
+                    $thisNode,
+                    'container'
+                ),
+                'get',
+                [
+                    new Arg(new String_($classMeta->getName()))
+                ]
+            )
+        );
+
+        // $commandController->{$methodMeta->getName()}(...$executeArgs)
+        $executeNodes[] = new MethodCall(
+            $commandControllerVariable,
+            $methodMeta->getName(),
+            $executeArgs
+        );
+
+        // See the generated proxy for this one...
+        $node = $this->phpGenerator->namespace(self::PROXY_NAMESPACE)
+            ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Command\Command'))
+            ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Input\InputArgument'))
+            ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Input\InputInterface'))
+            ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Output\OutputInterface'))
+            ->addStmt($this->phpGenerator->use('Bonefish\Injection\ContainerInterface'))
+            ->addStmt($this->phpGenerator->class($name)
+                ->extend('Command')
+                ->addStmt($this->phpGenerator->property('container')
+                    ->makePublic()
+                    ->setDocComment('/**
+                        * @var ContainerInterface
+                        * @Bonefish\Inject
+                        */')
+                )
+                ->addStmt($this->phpGenerator->method('configure')
+                    ->makeProtected()
+                    ->addStmts($configNodes)
+                )
+                ->addStmt($this->phpGenerator->method('execute')
+                    ->makeProtected()
+                    ->addParam($this->phpGenerator->param('input')->setTypeHint('InputInterface'))
+                    ->addParam($this->phpGenerator->param('output')->setTypeHint('OutputInterface'))
+                    ->addStmts($executeNodes)
+                )
+            )
+            ->getNode();
+
+        // Generate Code finally
+        $code = $this->prettyPrinter->prettyPrintFile([$node]);
+        // Write file
+        file_put_contents($cachePath . $name . '.php', $code);
+
+        // Return proxy class name
+        return $fullName;
+    }
+
+    /**
+     * @param Variable $thisNode
+     * @param $methodName
+     * @param $stringParameter
+     * @return MethodCall
+     */
+    protected function simpleMethodCallNode($thisNode, $methodName, $stringParameter)
+    {
+        return new MethodCall(
+            $thisNode,
+            $methodName,
+            [
+                new Arg(new String_($stringParameter))
+            ]
+        );
+    }
 }
