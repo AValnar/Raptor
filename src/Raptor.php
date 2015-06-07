@@ -22,115 +22,131 @@
 
 namespace Bonefish\Raptor;
 
+use Bonefish\Autoloader\Autoloader;
 use Bonefish\CLI\CLIInterface;
-use Bonefish\Raptor\Command\CommandInterface;
-use Bonefish\Raptor\Command\HelpCommand;
-use Bonefish\Traits\Parametrized;
+use Bonefish\Injection\ContainerInterface;
+use Bonefish\Traits\DirectoryCreator;
+use Bonefish\Utility\ConfigurationManager;
+use Bonefish\Utility\Environment;
+use Nette\Reflection\AnnotationsParser;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Finder\Finder;
+use Symfony\Component\Finder\SplFileInfo;
 
-class Raptor implements CLIInterface
+class Raptor extends Application implements CLIInterface
 {
 
-    use Parametrized;
-
-    protected $validCommandTypes = [
-        self::HELP_COMMAND,
-        self::LIST_COMMAND,
-        self::EXPLAIN_COMMAND,
-        self::EXECUTE_COMMAND
-    ];
+    use DirectoryCreator;
 
     /**
-     * Main handler which is called after all arguments have been passed
-     *
-     * The CLI must be able to execute the following commands:
-     *
-     * - help
-     * - list
-     * - explain <vendor> <package> <command>
-     * - execute <vendor> <package> <command> [argument]*
+     * @var Environment
+     * @Bonefish\Inject
      */
-    public function run()
-    {
-        $parameters = $this->validateParameters();
+    public $environment;
 
-        $this->executeCommand($parameters);
+    /**
+     * @var ConfigurationManager
+     * @Bonefish\Inject
+     */
+    public $configurationManager;
+
+    /**
+     * @var ContainerInterface
+     * @Bonefish\Inject
+     */
+    public $container;
+
+    /**
+     * @var Finder
+     * @Bonefish\Inject
+     */
+    public $finder;
+
+    /**
+     * @var CommandProxyGenerator
+     * @Bonefish\Inject
+     */
+    public $commandProxyGenerator;
+
+    const RAPTOR_CACHE_PATH = '/Raptor/';
+    const COMMAND_CACHE_FILE = 'CommandCache.neon';
+
+    public function getRaptorCachePath()
+    {
+        return $this->environment->getFullCachePath() . self::RAPTOR_CACHE_PATH;
     }
 
-    /**
-     * Validate passed parameters to be valid
-     *
-     * @return array
-     */
-    protected function validateParameters()
+    public function __construct()
     {
-        $parameters = $this->getParameters();
-
-        $this->basicParametersValidation($parameters);
-        $this->validateExplainAndExecuteCommandFormat($parameters);
-
-        return $parameters;
+        parent::__construct('Bonefish Raptor', 'v2');
     }
 
-    /**
-     * Validate arguments to be in a valid format
-     *
-     * @param $parameters
-     */
-    protected function basicParametersValidation($parameters)
+    public function __init()
     {
-        if (count($parameters) < 1) {
-            echo 'Invalid amount of parameters.';
-            exit(self::INVALID_PARAMETER_AMOUNT);
-        }
+        $commands = $this->getBonefishCommands();
 
-        if (!in_array($parameters[0], $this->validCommandTypes)) {
-            echo 'Invalid command type (' . $parameters[0] . ').';
-            exit(self::INVALID_COMMAND_TYPE);
+        foreach ($commands as $command) {
+            $this->add($command);
         }
     }
 
-    /**
-     * Validate explain and execute command for basic sanity.
-     *
-     * @param $parameters
-     */
-    protected function validateExplainAndExecuteCommandFormat($parameters)
+    protected function getBonefishCommands()
     {
-        if ($parameters[0] !== self::EXPLAIN_COMMAND && $parameters[0] !== self::EXECUTE_COMMAND) {
-            return;
+        $commands = [];
+        $cachePath = $this->getRaptorCachePath();
+        $cacheFile = $cachePath . self::COMMAND_CACHE_FILE;
+
+        try {
+            $cache = $this->configurationManager->getConfiguration($cacheFile);
+        } catch (\InvalidArgumentException $e) {
+            $cache = $this->generateCommandCache();
         }
 
-        if (count($parameters) < 4) {
-            echo 'Invalid amount of parameters.';
-            exit(self::INVALID_PARAMETER_AMOUNT);
+        $autoloader = new Autoloader();
+        $autoloader->addNamespace('Bonefish\Raptor\Proxy\\', $cachePath);
+        $autoloader->register();
+
+        foreach ($cache['commands'] as $command) {
+            $commands[] = $this->container->get($command);
         }
+
+        return $commands;
     }
 
-    /**
-     * @param array $parameters
-     */
-    protected function executeCommand(array $parameters)
+    protected function generateCommandCache()
     {
-        /** @var CommandInterface $command */
-        $command = null;
+        $commands = [];
 
-        switch ($parameters[0]) {
-            case self::HELP_COMMAND :
-                $command = new HelpCommand();
-                break;
-            case self::EXPLAIN_COMMAND :
-                echo 'Explain command';
-                break;
-            case self::EXECUTE_COMMAND :
-                echo 'Execute command';
-                break;
-            default :
-                echo 'List command';
-                breaK;
+        $packagesPath = $this->environment->getFullPackagePath();
+        $vendorPath = $this->environment->getBasePath() . '/vendor';
+
+        $this->finder->files()
+            ->ignoreUnreadableDirs()
+            ->in($packagesPath)
+            ->in($vendorPath)
+            ->exclude('/tests/i')
+            ->path('/controller/i')
+            ->name('*Command.php');
+
+        /** @var SplFileInfo $file */
+        foreach ($this->finder as $file) {
+            $parsed = AnnotationsParser::parsePhp(file_get_contents($file->getPathname()));
+            $class = array_keys($parsed);
+            $proxies = $this->commandProxyGenerator->generateCommandProxy($class[0]);
+            foreach ($proxies as $proxy) {
+                $commands[] = $proxy;
+            }
         }
 
-        $command->setParameters(array_slice($parameters, 1));
-        $returnCode = $command->execute();
-        exit(intval($returnCode));
+        $cachePath = $this->getRaptorCachePath();
+        $this->createDir($cachePath);
+        $filePath = $cachePath . self::COMMAND_CACHE_FILE;
+
+        $this->configurationManager->writeConfiguration(
+            $filePath,
+            ['commands' => $commands]
+        );
+
+        return $this->configurationManager->getConfiguration($filePath);
     }
 }
