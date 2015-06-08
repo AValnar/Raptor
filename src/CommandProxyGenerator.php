@@ -38,7 +38,7 @@ use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\PrettyPrinter\Standard;
 
-class CommandProxyGenerator
+final class CommandProxyGenerator
 {
 
     use DirectoryCreator;

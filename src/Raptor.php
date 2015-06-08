@@ -26,7 +26,7 @@ use Bonefish\Autoloader\Autoloader;
 use Bonefish\CLI\CLIInterface;
 use Bonefish\Injection\ContainerInterface;
 use Bonefish\Traits\DirectoryCreator;
-use Bonefish\Utility\ConfigurationManager;
+use Bonefish\Utility\Configuration\ConfigurationManagerInterface;
 use Bonefish\Utility\Environment;
 use Nette\Reflection\AnnotationsParser;
 use Symfony\Component\Console\Application;
@@ -45,7 +45,7 @@ class Raptor extends Application implements CLIInterface
     public $environment;
 
     /**
-     * @var ConfigurationManager
+     * @var ConfigurationManagerInterface
      * @Bonefish\Inject
      */
     public $configurationManager;
