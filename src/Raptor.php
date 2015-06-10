@@ -41,21 +41,18 @@ class Raptor extends Application implements CLIInterface
 
     /**
      * @var Environment
-     * @Bonefish\Inject
      */
-    public $environment;
+    protected $environment;
 
     /**
      * @var ConfigurationManagerInterface
-     * @Bonefish\Inject
      */
-    public $configurationManager;
+    protected $configurationManager;
 
     /**
      * @var ContainerInterface
-     * @Bonefish\Inject
      */
-    public $container;
+    protected $container;
 
     /**
      * @var Finder
@@ -77,9 +74,22 @@ class Raptor extends Application implements CLIInterface
         return $this->environment->getFullCachePath() . self::RAPTOR_CACHE_PATH;
     }
 
-    public function __construct()
+    /**
+     * @param Environment $environment
+     * @param ConfigurationManagerInterface $configurationManager
+     * @param ContainerInterface $container
+     * @Bonefish\Inject
+     */
+    public function __construct(
+        Environment $environment,
+        ConfigurationManagerInterface $configurationManager,
+        ContainerInterface $container
+    )
     {
         parent::__construct('Bonefish Raptor', 'v2');
+        $this->environment = $environment;
+        $this->configurationManager = $configurationManager;
+        $this->container = $container;
     }
 
     public function __init()
