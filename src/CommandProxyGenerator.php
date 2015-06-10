@@ -37,6 +37,7 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\PrettyPrinter\Standard;
+use Bonefish\Injection\Annotations as Bonefish;
 
 final class CommandProxyGenerator
 {
@@ -222,6 +223,7 @@ final class CommandProxyGenerator
             ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Input\InputInterface'))
             ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Output\OutputInterface'))
             ->addStmt($this->phpGenerator->use('Bonefish\Injection\ContainerInterface'))
+            ->addStmt($this->phpGenerator->use('Bonefish\Injection\Annotations')->as('Bonefish'))
             ->addStmt($this->phpGenerator->class($name)
                 ->extend('Command')
                 ->addStmt($this->phpGenerator->property('container')

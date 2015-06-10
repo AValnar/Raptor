@@ -32,6 +32,7 @@ use Nette\Reflection\AnnotationsParser;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
+use Bonefish\Injection\Annotations as Bonefish;
 
 class Raptor extends Application implements CLIInterface
 {
