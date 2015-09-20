@@ -45,32 +45,36 @@ final class CommandProxyGenerator
     use DirectoryCreator;
 
     /**
-     * @var Environment
-     * @Bonefish\Inject
-     */
-    public $environment;
-
-    /**
      * @var BuilderFactory
-     * @Bonefish\Inject
      */
     public $phpGenerator;
 
     /**
      * @var ReflectionService
-     * @Bonefish\Inject
      */
-    public $reflectionService;
+    protected $reflectionService;
 
     /**
      * @var Standard
-     * @Bonefish\Inject
      */
-    public $prettyPrinter;
+    protected $prettyPrinter;
 
     const PROXY_NAMESPACE = 'Bonefish\Raptor\Proxy';
     const COMMAND_SUFFIX = 'Command';
     const COMMAND_PROXY_NAME_SEPARATOR = '_';
+
+
+    public function __construct(
+        BuilderFactory $phpGenerator,
+        ReflectionService $reflectionService,
+        Standard $prettyPrinter
+    )
+    {
+        $this->phpGenerator = $phpGenerator;
+        $this->reflectionService = $reflectionService;
+        $this->prettyPrinter = $prettyPrinter;
+    }
+
 
     /**
      * Get path where raptor should store proxy classes
@@ -79,7 +83,7 @@ final class CommandProxyGenerator
      */
     public function getRaptorCachePath()
     {
-        return $this->environment->getFullCachePath() . Raptor::RAPTOR_CACHE_PATH;
+        return Raptor::RAPTOR_CACHE_PATH;
     }
 
     /**
@@ -94,7 +98,7 @@ final class CommandProxyGenerator
         $proxies = [];
 
         $cachePath = $this->getRaptorCachePath();
-        $this->createDir($cachePath);
+        $this->createDirectory($cachePath);
         $thisNode = new Variable('this');
 
         foreach ($classMeta->getMethods() as $methodMeta) {

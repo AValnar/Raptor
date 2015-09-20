@@ -23,8 +23,7 @@
 namespace Bonefish\Raptor;
 
 use Bonefish\Autoloader\Autoloader;
-use Bonefish\CLI\CLIInterface;
-use Bonefish\Injection\ContainerInterface;
+use Bonefish\Injection\Container\ContainerInterface;
 use Bonefish\Traits\DirectoryCreator;
 use Bonefish\Utility\Configuration\ConfigurationManagerInterface;
 use Bonefish\Utility\Environment;
@@ -32,9 +31,8 @@ use Nette\Reflection\AnnotationsParser;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
-use Bonefish\Injection\Annotations as Bonefish;
 
-class Raptor extends Application implements CLIInterface
+class Raptor extends Application
 {
 
     use DirectoryCreator;
@@ -66,19 +64,18 @@ class Raptor extends Application implements CLIInterface
      */
     public $commandProxyGenerator;
 
-    const RAPTOR_CACHE_PATH = '/Raptor/';
+    const RAPTOR_CACHE_PATH = '/var/tmp/raptor/';
     const COMMAND_CACHE_FILE = 'CommandCache.neon';
 
     public function getRaptorCachePath()
     {
-        return $this->environment->getFullCachePath() . self::RAPTOR_CACHE_PATH;
+        return self::RAPTOR_CACHE_PATH;
     }
 
     /**
      * @param Environment $environment
      * @param ConfigurationManagerInterface $configurationManager
      * @param ContainerInterface $container
-     * @Bonefish\Inject
      */
     public function __construct(
         Environment $environment,
@@ -150,7 +147,7 @@ class Raptor extends Application implements CLIInterface
         }
 
         $cachePath = $this->getRaptorCachePath();
-        $this->createDir($cachePath);
+        $this->createDirectory($cachePath);
         $filePath = $cachePath . self::COMMAND_CACHE_FILE;
 
         $this->configurationManager->writeConfiguration(
