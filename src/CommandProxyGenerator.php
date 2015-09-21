@@ -226,7 +226,7 @@ final class CommandProxyGenerator
             ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Input\InputArgument'))
             ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Input\InputInterface'))
             ->addStmt($this->phpGenerator->use('Symfony\Component\Console\Output\OutputInterface'))
-            ->addStmt($this->phpGenerator->use('Bonefish\Injection\ContainerInterface'))
+            ->addStmt($this->phpGenerator->use('Bonefish\Injection\Container\ContainerInterface'))
             ->addStmt($this->phpGenerator->use('Bonefish\Injection\Annotations')->as('Bonefish'))
             ->addStmt($this->phpGenerator->class($name)
                 ->extend('Command')
